@@ -1,0 +1,60 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function signed() { return request.auth != null; }
+  function self(uid) { return signed() && request.auth.uid == uid; }
+  function participant() { return signed() && request.auth.uid in resource.data.participants; }
+  function chatMember(cid) { return signed() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(cid)).data.participants; }
+  match /users/{uid} { allow read: if self(uid); allow write: if false;
+   match /operations/{id} { allow read, write: if false; }
+  }
+  match /products/{id} { allow read: if true; allow write: if false; }
+  match /auctions/{id} { allow read: if true; allow write: if false;
+   match /bids/{bidId} { allow read: if true; allow write: if false; }
+   match /autoBids/{uid} { allow read: if self(uid); allow write: if false; }
+  }
+  match /descendingSales/{id} { allow read: if true; allow write: if false; }
+  match /transactions/{id} { allow read: if participant(); allow write: if false; }
+  match /escrowPayments/{id} { allow read: if participant(); allow write: if false; }
+  match /deliveries/{id} { allow read: if participant(); allow write: if false; }
+  match /conversations/{cid} { allow read: if participant(); allow write: if false;
+   match /messages/{mid} {
+    allow read: if chatMember(cid);
+    allow create: if chatMember(cid) && request.auth.token.email_verified == true
+     && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active'
+     && request.resource.data.keys().hasOnly(['senderId','text','createdAt'])
+     && request.resource.data.senderId == request.auth.uid
+     && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000
+     && request.resource.data.createdAt == request.time;
+    allow update, delete: if false;
+   }
+  }
+  match /favorites/{uid}/items/{pid} {
+   allow read, delete: if self(uid);
+   allow create: if self(uid) && request.resource.data.keys().hasOnly(['userId','productId']) && request.resource.data.userId == uid && request.resource.data.productId == pid && exists(/databases/$(database)/documents/products/$(pid));
+   allow update: if false;
+  }
+  match /identityVerifications/{id} { allow read: if signed() && resource.data.userId == request.auth.uid; allow write: if false; }
+  match /paymentMethods/{id} { allow read: if signed() && resource.data.userId == request.auth.uid; allow write: if false; }
+  match /notifications/{id} { allow read: if signed() && resource.data.userId == request.auth.uid; allow write: if false; }
+  match /liveStreams/{id} {
+    allow read: if true;
+    allow write: if false;
+    match /messages/{mid} {
+      allow read: if true;
+      allow create: if signed() && request.auth.token.email_verified == true
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active'
+        && request.resource.data.keys().hasOnly(['senderId','senderName','text','createdAt'])
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 300
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+    match /signaling/{uid} {
+      allow read, write: if signed();
+    }
+  }
+  match /reviews/{id} { allow read: if true; allow write: if false; }
+  match /{document=**} { allow read, write: if false; }
+ }
+}

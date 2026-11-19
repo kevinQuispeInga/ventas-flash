@@ -1,0 +1,13 @@
+node_modules
+dist
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+functions/node_modules
+functions/lib
+*-debug.log
+.firebase
+coverage
+emulator-data
+emulator-data/
