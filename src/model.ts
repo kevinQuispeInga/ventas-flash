@@ -28,13 +28,14 @@ export type Product = {
 export type Order = {
   buyerId?: string;
   sellerId?: string;
-  status?: import("./types/firestore").TransactionStatus;
+  status?: import("./types/marketplace").TransactionStatus;
   provider?: "demo";
   id: string;
   productId: string;
   title: string;
   price: number;
   fee: number;
+  feePayer?: "buyer" | "seller";
   received: boolean;
   messages: { text: string; mine: boolean; senderId?: string; time?: number }[];
 };

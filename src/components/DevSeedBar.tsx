@@ -1,3 +1,4 @@
+import { friendly } from "../lib/errors";
 import React, { useState } from "react";
 import {
   Users,
@@ -14,7 +15,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { MarketplaceService } from "../services/contracts";
-import type { UserProfile } from "../types/firestore";
+import type { UserProfile } from "../types/marketplace";
 import { SEED_USERS, DEFAULT_TEST_PASSWORD, type SeedUser } from "../data/seedData";
 
 interface DevSeedBarProps {
@@ -54,7 +55,7 @@ export function DevSeedBar({
       service.seedDemoData?.(true);
       notify("🌱 Catálogo poblado: 60 productos, 5 Flash Live y órdenes DEMO");
     } else {
-      notify("En Firebase Emulator Suite, ejecuta en terminal: npm run seed:emulators");
+      notify("Los datos de ejemplo solo están disponibles en modo demo.");
     }
   };
 
@@ -77,7 +78,7 @@ export function DevSeedBar({
         setShowModal(false);
       }
     } catch (err: any) {
-      notify(`Error: ${err?.message || "No se pudo cambiar de usuario"}`);
+      notify(friendly(err));
     }
   };
 
@@ -104,8 +105,8 @@ export function DevSeedBar({
       <div className={`dev-seed-bar ${collapsed ? "collapsed" : ""}`}>
         <div className="dev-seed-bar-content">
           <div className="dev-status-pill">
-            <span className="dev-indicator-dot firebase" />
-            <strong>ENTORNO LOCAL · Firebase Backend</strong>
+            <span className="dev-indicator-dot demo" />
+            <strong>DEMOSTRACIÓN LOCAL</strong>
             <span className="dev-stat-badge">
               {productCount} items · {liveCount} lives
             </span>
@@ -357,7 +358,7 @@ export function DevSeedBar({
             <div className="dev-modal-footer">
               <span className="dev-footer-note">
                 💡 Todas las identidades son 100% ficticias y aptas para pruebas locales.
-                Costo S/ 0 en Firebase Emulator Suite y LocalStorage.
+                Datos ficticios guardados en este navegador.
               </span>
               <button
                 type="button"

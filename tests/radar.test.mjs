@@ -7,7 +7,7 @@ import {
   DEFAULT_LIMA_LOCATION,
   LIMA_DISTRICTS,
 } from "../src/lib/geo.ts";
-import { haversineDistance as backendHaversine } from "../functions/lib/domain.js";
+import { haversineDistance as backendHaversine } from "../src/lib/domain.ts";
 
 // Coordenadas conocidas de referencia en Lima
 const MIRAFLORES = { lat: -12.1215, lon: -77.0298 };

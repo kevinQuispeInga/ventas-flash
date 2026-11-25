@@ -6,7 +6,7 @@ import {
   feeCents,
   descendingPrice,
   cents,
-} from "../functions/lib/domain.js";
+} from "../src/lib/domain.ts";
 const a = () => ({
   priceCents: 105000,
   incrementCents: 5000,

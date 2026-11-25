@@ -3261,7 +3261,7 @@ html {
   box-shadow: 0 0 8px #f59e0b;
 }
 
-.dev-indicator-dot.firebase {
+.dev-indicator-dot.demo {
   background: #10b981;
   box-shadow: 0 0 8px #10b981;
 }
@@ -3697,4 +3697,87 @@ html {
 .dev-footer-note {
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.6);
+}
+/* Account access */
+.access-page { max-width: 1180px; display:grid; grid-template-columns:1.05fr 1fr; padding:0; border:1px solid #dde5d9; border-radius:28px; overflow:hidden; background:#fff; box-shadow:0 18px 60px #173d2b0a; margin-bottom:64px; }
+.access-story { position:relative; padding:48px 42px; color:#fff; background:radial-gradient(ellipse at 0 100%,#245e3d 0,transparent 65%),#0a3622; overflow:hidden; display:flex; flex-direction:column; justify-content:center; }
+.access-story::after { content:""; position:absolute; width:380px; height:380px; border:1px solid #b8f22720; border-radius:50%; right:-240px; top:-160px; box-shadow:0 0 0 55px #b8f22708,0 0 0 110px #b8f22704; pointer-events:none; }
+.access-kicker { display:flex; align-items:center; gap:8px; font-size:.75rem; letter-spacing:.1em; color:#cbeca5; font-weight:700; }
+.access-story h1 { font-size:clamp(2rem,3.2vw,3rem); line-height:1.12; letter-spacing:-.045em; font-weight:750; margin:32px 0 22px; }
+.access-story h1 em { color:#b8f227; font-style:normal; }
+.access-story > p { color:#d4e4d6; font-size:1rem; line-height:1.7; max-width:350px; margin:0; }
+.access-preview { display:flex; align-items:center; gap:16px; position:relative; margin:35px 0; padding:20px; background:#ffffff0d; border:1px solid #ffffff24; border-radius:18px; transform:rotate(-2deg); }
+.access-preview-icon { flex-shrink:0; color:#0a3622; width:64px; height:70px; background:#dbefc1; display:grid; place-items:center; border-radius:12px; }
+.access-preview strong { display:block; font-size:1rem; line-height:1.4; max-width:210px; margin:5px 0 8px; }
+.access-preview span:not(.access-spark) { color:#c5e7a8; font-size:.65rem; letter-spacing:.1em; font-weight:700; }
+.access-preview small { display:flex; gap:5px; align-items:center; color:#d4e4d6; font-size:.8rem; }
+.access-spark { position:absolute; top:-13px; right:15px; width:34px; height:34px; display:grid; place-items:center; border-radius:50%; background:#b8f227; color:#0a3622; transform:rotate(12deg); }
+.access-benefits { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+.access-benefits > span { display:flex; flex-direction:column; gap:8px; }
+.access-benefits svg { color:#b8f227; }
+.access-benefits b { font-size:.875rem; }
+.access-benefits small { color:#c7dacb; font-size:.8rem; line-height:1.5; }
+.access-story-foot { font-size:.65rem; letter-spacing:.12em; color:#adc9b6; border-top:1px solid #ffffff20; padding-top:24px; margin-top:32px; }
+.access-form-side { padding:42px 48px; display:flex; flex-direction:column; justify-content:center; }
+.access-mark { display:grid; place-items:center; width:44px; height:44px; border-radius:13px; color:#0a3622; background:#eaf3db; margin-bottom:20px; }
+.access-form-kicker { font-size:.7rem; letter-spacing:.1em; font-weight:700; color:#5c745c; }
+.access-form-side h2 { font-size:1.9rem; line-height:1.2; letter-spacing:-.04em; font-weight:750; margin:10px 0; }
+.access-intro { color:#627566; font-size:.95rem; line-height:1.6; margin:0 0 24px; }
+.access-tabs { display:flex; background:#f0f3ed; padding:5px; gap:4px; border-radius:12px; margin-bottom:25px; }
+.access-tabs button { flex:1; padding:11px 8px; border:0; border-radius:8px; color:#627566; font-size:.875rem; font-weight:650; background:transparent; }
+.access-tabs button[aria-pressed="true"] { color:#0a3622; background:#fff; box-shadow:0 2px 6px #123c2412; }
+.access-form { display:flex; flex-direction:column; gap:18px; }
+.access-form label { display:flex; flex-direction:column; gap:9px; font-size:.875rem; font-weight:650; }
+.access-input { display:flex; align-items:center; gap:12px; padding:0 14px; border:1px solid #dce4d7; border-radius:10px; background:#fff; color:#7c8c7d; }
+.access-input:focus-within { border-color:#6e9c39; box-shadow:0 0 0 3px #b8f22720; }
+.access-input input { min-width:0; flex:1; border:0; background:transparent; box-shadow:none; padding:15px 0; margin:0; outline:none; font-size:1rem; font-weight:400; }
+.access-input input:focus-visible { outline:none; }
+.access-input button { display:grid; place-items:center; min-width:32px; min-height:40px; border:0; background:transparent; color:#637764; padding:0; }
+.access-form input::placeholder { color:#879487; }
+.access-forgot,.access-return { border:0; background:transparent; font-size:.85rem; color:#365e37; padding:0; text-decoration:underline; text-underline-offset:3px; }
+.access-forgot { align-self:flex-end; margin-top:-5px; }
+.access-submit { min-height:52px; margin-top:4px; border-radius:11px; }
+.access-notice { background:#eef5e6; padding:12px; border-radius:8px; line-height:1.5; font-size:.875rem; margin:0; }
+.access-notice.error { background:#fdf2f2; color:#b91c1c; border:1px solid #fecaca; }
+.access-bottom { display:flex; align-items:center; justify-content:center; gap:9px; text-align:left; padding-top:24px; margin-top:26px; border-top:1px solid #e9ede5; color:#6c7c6d; font-size:.8rem; line-height:1.6; }
+.access-explore { display:block; text-align:center; font-size:.85rem; margin-top:18px; text-decoration:underline; text-underline-offset:3px; color:#486648; }
+/* Transparent seller commission */
+.seller-earnings { border:1px solid #d7e4c9; border-radius:18px; background:#f6f9f0; padding:24px; margin:24px 0; }
+.seller-earnings-heading { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.seller-wallet { width:44px; height:44px; display:grid; place-items:center; background:#e5efda; color:#315b2d; border-radius:12px; }
+.seller-earnings-heading h2 { margin:0; font-size:1.15rem; font-weight:750; letter-spacing:-.02em; }
+.seller-earnings-heading p { margin:4px 0 0; color:#64745d; font-size:.85rem; }
+.seller-rate { margin-left:auto; border:1px solid #cddfbb; border-radius:20px; padding:6px 10px; background:#fff; font-size:.75rem; font-weight:700; }
+.seller-breakdown { display:grid; gap:12px; padding:24px 0 18px; font-size:.95rem; }
+.seller-breakdown > div { display:flex; justify-content:space-between; gap:16px; }
+.seller-breakdown > div:nth-child(2) { color:#64745d; }
+.seller-breakdown b { white-space:nowrap; }
+.seller-net { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:22px; border-radius:12px; background:#0a3622; color:#fff; }
+.seller-net > span { font-size:1rem; font-weight:650; }
+.seller-net small { display:block; font-size:.8rem; font-weight:400; color:#c6d9bd; margin-top:6px; }
+.seller-net strong { font-size:clamp(1.5rem,4vw,2.2rem); color:#b8f227; white-space:nowrap; letter-spacing:-.04em; }
+.seller-earnings-note { color:#65735e; font-size:.85rem; line-height:1.6; margin:16px 0 0; }
+.checkout-commission { font-size:.9rem; color:#627566; line-height:1.6; }
+.order-proceeds { display:flex; flex-direction:column; gap:8px; border-radius:10px; padding:16px; background:#eef5e6; margin-bottom:18px; font-size:.9rem; }
+.order-proceeds strong { font-size:1.15rem; }
+@media(max-width:900px) {
+ .access-story { padding:34px 28px; }.access-form-side { padding:34px 28px; }
+ .access-preview { padding:14px; gap:12px; }.access-preview-icon { width:48px; height:58px; }
+}
+@media(max-width:680px) {
+ .access-page { grid-template-columns:1fr; border-radius:20px; }
+ .access-form-side { order:0; padding:28px 24px; }.access-story { order:1; padding:30px 24px; }
+ .access-story h1 { font-size:2.1rem; margin:20px 0 16px; }.access-story h1 br:last-child { display:none; }
+ .access-preview,.access-story-foot { display:none; }.access-benefits { margin-top:24px; }
+ .access-kicker { font-size:.65rem; }.access-form-side h2 { font-size:1.7rem; }
+ .seller-earnings { padding:16px; }.seller-rate { margin-left:56px; }
+ .seller-net { padding:16px; flex-wrap:wrap; }.seller-breakdown { font-size:.875rem; }
+}
+.access-page { width:calc(100% - 8%); margin-top:32px; }
+.access-form .access-input input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) { border:0; background:transparent; padding:15px 0; box-shadow:none; }
+@media(max-width:680px) {
+ .subnav { overflow-x:auto; max-width:100%; gap:18px; }
+ .subnav > div { flex-shrink:0; }
+ .subnav .subnav-radar-pill { flex-shrink:0; }
+ .access-page { margin-top:20px; width:90%; }
 }

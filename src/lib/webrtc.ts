@@ -1,7 +1,9 @@
 /**
- * Módulo de transmisión de vídeo para Flash Live.
- * Arquitectura híbrida: WebRTC P2P con señalización y fallback a Modo Demostración (Canvas / Vídeo).
+ * Módulo de transmisión de vídeo para Flash Live con WebRTC P2P real
+ * y señalización sobre Supabase Realtime Broadcast (S/ 0 de costo).
  */
+
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface MediaStreamState {
   stream: MediaStream | null;
@@ -11,9 +13,12 @@ export interface MediaStreamState {
   isVideoOff: boolean;
 }
 
-const ICE_SERVERS: RTCIceServer[] = [
+export const ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
+  { urls: "stun:stun4.l.google.com:19302" },
 ];
 
 /**
@@ -23,7 +28,7 @@ export async function requestUserMedia(): Promise<{ stream: MediaStream | null; 
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
     return {
       stream: null,
-      error: "Este navegador no soporta captura de cámara y micrófono WebRTC.",
+      error: "No pudimos acceder a la cámara y al micrófono. Usa un navegador actualizado y abre la página con una conexión segura.",
     };
   }
 
@@ -58,11 +63,12 @@ export function createDemoMediaStream(title: string, sellerName: string): MediaS
   const ctx = canvas.getContext("2d");
 
   let frame = 0;
+  let animId = 0;
   function draw() {
     if (!ctx) return;
     frame++;
 
-    // Fondo degradado elegante de estudio
+    // Fondo degradado de estudio
     const grad = ctx.createLinearGradient(0, 0, 640, 360);
     grad.addColorStop(0, "#0a2617");
     grad.addColorStop(1, "#04140b");
@@ -93,7 +99,7 @@ export function createDemoMediaStream(title: string, sellerName: string): MediaS
     ctx.arc(320, 150, pulseRadius, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Icono de cámara central
+    // Icono central
     ctx.fillStyle = "#b8f227";
     ctx.beginPath();
     ctx.arc(320, 150, 36, 0, Math.PI * 2);
@@ -109,16 +115,16 @@ export function createDemoMediaStream(title: string, sellerName: string): MediaS
     ctx.font = "bold 18px system-ui, sans-serif";
     ctx.fillText(title.length > 40 ? title.slice(0, 40) + "…" : title, 320, 225);
 
-    // Badge de vendedor y modo
+    // Badge de anfitrión
     ctx.fillStyle = "#b8f227";
     ctx.font = "14px system-ui, sans-serif";
     ctx.fillText(`Anfitrión: ${sellerName} · Ventas Flash Live`, 320, 252);
 
-    // Marca de agua y estado
+    // Marca de agua y reloj en tiempo real
     ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
     ctx.font = "12px monospace";
     const nowStr = new Date().toLocaleTimeString("es-PE");
-    ctx.fillText(`TRANSMISIÓN EN VIVO · MODO DEMOSTRACIÓN · ${nowStr}`, 320, 320);
+    ctx.fillText(`TRANSMISIÓN EN VIVO · ${nowStr}`, 320, 320);
 
     // Indicador REC
     ctx.fillStyle = Math.floor(frame / 20) % 2 === 0 ? "#e74c3c" : "#7f1d1d";
@@ -128,15 +134,17 @@ export function createDemoMediaStream(title: string, sellerName: string): MediaS
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 12px system-ui, sans-serif";
     ctx.textAlign = "left";
-    ctx.fillText("REC · DEMO", 50, 40);
+    ctx.fillText("REC · LIVE", 50, 40);
 
-    requestAnimationFrame(draw);
+    animId = requestAnimationFrame(draw);
   }
 
   draw();
 
-  // Obtener stream a 30 FPS
-  return canvas.captureStream(30);
+  const stream = canvas.captureStream(30);
+  // Asignar limpieza de animación al stream
+  (stream as any)._cleanupAnim = () => cancelAnimationFrame(animId);
+  return stream;
 }
 
 /**
@@ -144,7 +152,202 @@ export function createDemoMediaStream(title: string, sellerName: string): MediaS
  */
 export function stopMediaStream(stream: MediaStream | null) {
   if (!stream) return;
+  if ((stream as any)._cleanupAnim) {
+    (stream as any)._cleanupAnim();
+  }
   stream.getTracks().forEach((track) => {
     track.stop();
   });
+}
+
+/**
+ * Gestor de Señalización WebRTC sobre Supabase Realtime Broadcast.
+ * Permite transmisión P2P del anfitrión a un grupo de espectadores (1:N mesh).
+ */
+export interface WebRTCSession {
+  stop: () => void;
+}
+
+export function startWebRTCSignaling({
+  client,
+  streamId,
+  userId,
+  isHost,
+  localStream,
+  onRemoteStream,
+  onStatusChange,
+}: {
+  client: SupabaseClient;
+  streamId: string;
+  userId: string;
+  isHost: boolean;
+  localStream: MediaStream | null;
+  onRemoteStream?: (stream: MediaStream) => void;
+  onStatusChange?: (status: string) => void;
+}): WebRTCSession {
+  const peers = new Map<string, RTCPeerConnection>();
+  const channelName = `live-webrtc:${streamId}`;
+  let isStopped = false;
+
+  const channel = client.channel(channelName, {
+    config: { broadcast: { ack: false } },
+  });
+
+  function createHostPeer(viewerId: string): RTCPeerConnection {
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    peers.set(viewerId, pc);
+
+    if (localStream) {
+      localStream.getTracks().forEach((track) => {
+        pc.addTrack(track, localStream);
+      });
+    }
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && !isStopped) {
+        channel.send({
+          type: "broadcast",
+          event: "ice-candidate",
+          payload: { from: userId, to: viewerId, candidate: event.candidate },
+        });
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === "disconnected" || pc.connectionState === "failed" || pc.connectionState === "closed") {
+        pc.close();
+        peers.delete(viewerId);
+      }
+    };
+
+    return pc;
+  }
+
+  function createViewerPeer(hostId: string): RTCPeerConnection {
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    peers.set(hostId, pc);
+
+    pc.ontrack = (event) => {
+      if (event.streams && event.streams[0]) {
+        onRemoteStream?.(event.streams[0]);
+        onStatusChange?.("connected");
+      }
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && !isStopped) {
+        channel.send({
+          type: "broadcast",
+          event: "ice-candidate",
+          payload: { from: userId, to: hostId, candidate: event.candidate },
+        });
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === "connected") {
+        onStatusChange?.("connected");
+      } else if (pc.connectionState === "failed") {
+        onStatusChange?.("failed");
+      }
+    };
+
+    return pc;
+  }
+
+  // Escuchar eventos de señalización Broadcast
+  channel
+    .on("broadcast", { event: "viewer-join" }, async ({ payload }) => {
+      if (!isHost || isStopped || !payload?.viewerId) return;
+      const viewerId = payload.viewerId;
+      try {
+        const pc = peers.get(viewerId) || createHostPeer(viewerId);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        channel.send({
+          type: "broadcast",
+          event: "offer",
+          payload: { from: userId, to: viewerId, sdp: offer },
+        });
+      } catch (err) {
+        console.warn("Error creando oferta para espectador:", err);
+      }
+    })
+    .on("broadcast", { event: "offer" }, async ({ payload }) => {
+      if (isHost || isStopped || payload?.to !== userId || !payload?.sdp) return;
+      try {
+        const hostId = payload.from;
+        const pc = peers.get(hostId) || createViewerPeer(hostId);
+        await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        channel.send({
+          type: "broadcast",
+          event: "answer",
+          payload: { from: userId, to: hostId, sdp: answer },
+        });
+      } catch (err) {
+        console.warn("Error procesando oferta SDP de anfitrión:", err);
+      }
+    })
+    .on("broadcast", { event: "answer" }, async ({ payload }) => {
+      if (!isHost || isStopped || payload?.to !== userId || !payload?.sdp) return;
+      try {
+        const viewerId = payload.from;
+        const pc = peers.get(viewerId);
+        if (pc && pc.signalingState !== "stable") {
+          await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+        }
+      } catch (err) {
+        console.warn("Error procesando respuesta SDP de espectador:", err);
+      }
+    })
+    .on("broadcast", { event: "ice-candidate" }, async ({ payload }) => {
+      if (isStopped || payload?.to !== userId || !payload?.candidate) return;
+      try {
+        const pc = peers.get(payload.from);
+        if (pc) {
+          await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+        }
+      } catch (err) {
+        console.warn("Error agregando candidato ICE:", err);
+      }
+    })
+    .on("broadcast", { event: "viewer-leave" }, ({ payload }) => {
+      if (isHost && payload?.viewerId) {
+        const pc = peers.get(payload.viewerId);
+        if (pc) {
+          pc.close();
+          peers.delete(payload.viewerId);
+        }
+      }
+    })
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED" && !isHost && !isStopped) {
+        // Notificar al anfitrión que nos unimos a la sala para iniciar el apretón de manos SDP
+        channel.send({
+          type: "broadcast",
+          event: "viewer-join",
+          payload: { viewerId: userId },
+        });
+      }
+    });
+
+  return {
+    stop: () => {
+      isStopped = true;
+      if (!isHost) {
+        channel.send({
+          type: "broadcast",
+          event: "viewer-leave",
+          payload: { viewerId: userId },
+        });
+      }
+      peers.forEach((pc) => pc.close());
+      peers.clear();
+      void client.removeChannel(channel);
+    },
+  };
 }

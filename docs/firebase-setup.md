@@ -1,3 +1,5 @@
+> Documento histórico. El backend activo es Supabase; consulta [la guía vigente](supabase-setup.md).
+
 # Conectar Firebase
 
 ## Estado y alcance

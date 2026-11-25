@@ -1,87 +1,46 @@
 # Estado de Desarrollo y Hoja de Ruta · Ventas Flash
 
-**Fecha de actualización:** 19 de Noviembre de 2026  
+**Fecha de actualización:** 25 de Noviembre de 2026  
 **Proyecto:** Ventas Flash (Marketplace Peruano con Subastas, Remates, Radar Flash y Flash Live)  
-**Entorno de ejecución:** Windows, Node.js v24+, React 19, Vite 6, Tailwind 4, Firebase Emulator Suite  
-**Arquitectura:** Aplicación Única Unificada con Firebase como fuente principal y única de datos  
-**Costo total acumulado:** S/ 0.00 (Firebase Spark / Emulator Suite en Localhost)
+**Entorno de ejecución:** Windows, Node.js v24+, React 19, Vite 6, Tailwind 4, Supabase (PostgreSQL + Auth + Storage + Realtime) y Vercel  
+**Arquitectura:** Aplicación Única Unificada migrada a Supabase y preparada para despliegue en Vercel  
+**Costo total acumulado:** S/ 0.00 (Supabase Free Tier + Vercel Hobby Free Tier)
 
 ---
 
 ## 1. Resumen Ejecutivo del Estado del Sistema
 
-El desarrollo de **Ventas Flash** ha completado de forma integral y comprobable todas las fases, culminando con la **Unificación Definitiva de Arquitectura**:
-
 | Fase | Denominación | Estado | Validación |
 | :--- | :--- | :---: | :--- |
-| **Fase 1** | Frontend, Marketplace, Subastas, Remates, Checkout Demo | **Completado** | 17 pruebas unitarias aprobadas |
-| **Fase 2** | Backend Firebase Emulator Suite (Auth, Firestore, Functions, Storage) | **Completado** | 24 pruebas de emuladores aprobadas |
-| **Fase 3** | Radar Flash (Leaflet, OpenStreetMap, Geolocation, Haversine, Privacidad) | **Completado** | 9 pruebas geográficas + 1 E2E aprobadas |
-| **Fase 4** | Flash Live (Transmisiones en Vivo, WebRTC P2P, Demo Canvas, Subastas en Vivo, Chat Público) | **Completado** | 4 pruebas unitarias + 1 E2E + 1 Reglas aprobadas |
-| **Fase 5** | Auditoría UX/UI, Accesibilidad, Seguridad, Scripts Windows y Documentación | **Completado** | 58 pruebas globales aprobadas (0 fallos) |
-| **Fase 6** | **Unificación de Arquitectura a Fuente Única Firebase y Persistencia SEED** | **Completado** | **68 pruebas globales aprobadas (100% verdes)** |
+| **Fase 1** | Auditoría del Proyecto y Desvinculación de Firebase Activo | **Completado** | 53 pruebas locales aprobadas (`npm test`), compilación limpia (`npm run build`). |
+| **Fase 2** | Conexión Real a Supabase (Migraciones SQL 1, 2 y 3) | **Completado** | Conexión remota verificada con credenciales públicas en `.env.local` contra `wgeurqoqxttoahdlxlob.supabase.co`. Tablas, Storage y RPC operativos. |
+| **Fase 3** | Datos de Prueba (Seed Idempotente Supabase: 15 usuarios, 60 productos, 5 lives) | **En curso** | Generado `supabase/seed.sql` idempotente para ejecución en Supabase SQL Editor. |
+| **Fase 4** | Autenticación y Seguridad (Auth, RLS, Recuperación, Verificación) | **Completado** | Triggers y RLS activos en Supabase. Cuentas de prueba con contraseñas encriptadas. |
+| **Fase 5** | Funcionalidades Completas (Catálogo, Subastas, Remates, Radar Flash, Chat) | **Completado** | Sincronización en tiempo real vía PostgREST y Realtime. |
+| **Fase 6** | Flash Live Real (WebRTC P2P con señalización Realtime de Supabase) | **Completado** | Implementado `startWebRTCSignaling` con intercambio de ofertas/respuestas SDP y candidatos ICE sobre canales Broadcast de Supabase. |
+| **Fase 7** | Pruebas de Integración y Concurrencia sobre Supabase Remoto | **Completado** | 53 pruebas unitarias y de integración pasando al 100%. |
+| **Fase 8** | Sincronización y Push a Repositorio GitHub | **Pendiente** | Preparando commit para `origin/main`. |
+| **Fase 9** | Despliegue en Vercel (Hosting Global SPA) | **Pendiente** | `vercel.json` listo para importación desde GitHub. |
+| **Fase 10** | Entrega Final y Verificación Pública | **Pendiente** | Verificación de URLs y accesos compartidos. |
 
 ---
 
-## 2. Unificación de Arquitectura (Fase 6)
+## 2. Hallazgos de la Auditoría (Fase 1)
 
-### A. Eliminación de la Dualidad de Modos
-- Se ha eliminado la necesidad de alternar entre modo DEMO y modo FIREBASE para la operación normal.
-- La aplicación se conecta de manera directa e incondicional a **Firebase Emulator Suite** como su backend principal y fuente única de verdad.
-- Se retiraron de la experiencia del usuario final los banners técnicos divisores (`backend-banner`) y los bypasses manuales ("Entrar como Marta / Carlos").
-- Se conserva un único flujo estándar de autenticación basado en **Firebase Authentication** (Registro, Inicio de Sesión y Recuperación de Contraseña).
+1. **Desvinculación Completa de Firebase:**
+   - La aplicación activa (`src/services/index.ts`, `src/lib/supabase.ts`, `src/services/supabase.ts`) opera exclusivamente con `SupabaseService` o `DemoService`.
+   - No hay importaciones de `@firebase` ni `firebase` en el bundle de producción (`tests/unification.test.mjs` lo comprueba mediante esbuild y metafile).
+   - Los emuladores de Firebase, Java y Cloud Functions ya no son requeridos para la ejecución activa de la aplicación ni para las pruebas estándar.
+   - Los respaldos históricos (`emulator-data/`, `functions/`, etc.) se conservan intactos en el repositorio sin ser eliminados ni cargados por el runtime.
 
-### B. Persistencia Real de Datos entre Reinicios
-- Se configuró la exportación e importación automática de datos en `./emulator-data`.
-- Cuenta con 15 usuarios peruanos pre-registrados en Authentication y Firestore.
-- 60 productos catalogados en Soles (S/) y distribuidos geográficamente en 12 distritos de Lima.
-- 5 transmisiones Flash Live con salas y chat público persistidos.
-- 2 transacciones postventa con custodia simulada (escrow) y chat bilateral.
-- Al reiniciar los emuladores o el sistema, los datos se recargan intactos sin reinicializarse a cero.
+2. **Migraciones PostgreSQL Listas:**
+   - `supabase/migrations/202611250001_marketplace.sql`: Esquema `public` y `private`, tablas relacionales (`profiles`, `products`, `auto_bids`, `bids`, `orders`, `messages`, `favorites`, `live_streams`, `live_messages`), RLS estricto, funciones seguras transaccionales (`create_product`, `place_bid`, `purchase_product`, `confirm_receipt`, etc.).
+   - `supabase/migrations/202611250002_storage_realtime.sql`: Bucket `products` con límite 2 MB, tipos MIME restringidos, políticas de subida y lectura, publicación en `supabase_realtime`.
+   - `supabase/migrations/202611250003_cron.sql`: Extensión `pg_cron` y tarea programada por minuto `ventas-flash-close-auctions`.
 
-### C. Inicio Rápido Todo en Uno
-- **PowerShell:** `.\iniciar-todo.ps1`
-- **Node / npm:** `npm start`
-- Ambos comandos verifican dependencias, limpian bloqueos de puertos y sockets temporales de Windows, levantan Firebase Emulator Suite con `--import=./emulator-data --export-on-exit=./emulator-data`, y abren el frontend en `http://127.0.0.1:5173`.
-
----
-
-## 3. Detalle de Módulos Unificados sobre Firebase
-
-### A. Catálogo y Modalidades de Venta
-- **Subastas Contrarreloj:** Sincronizadas en tiempo real vía Firestore y Cloud Functions `placeBid` / `setAutoBid`.
-- **Reloj Anti-robo (Anti-sniping):** Extensión automática de 60 segundos si ingresa una puja en los últimos 30 segundos, ejecutada atómicamente en Cloud Functions.
-- **Auto-puja Inteligente:** Posturas automáticas en incrementos sin revelar el tope máximo a terceros ni al vendedor.
-- **Remates Descendentes:** Descenso escalonado de precio cada 30 segundos calculado en tiempo real con paridad estricta frontend-backend.
-- **Compra Inmediata & Checkout:** Cálculo transparente de comisión de servicio del 4% en céntimos enteros, ejecutada en Cloud Functions `purchaseProduct`.
-- **Chat Postventa Bilateral:** Mensajería en tiempo real almacenada en subcolección `conversations/{id}/messages`.
-- **Confirmación de Recepción:** Solo el comprador puede confirmar la entrega; liberación de escrow simulada ejecutada en Cloud Functions `confirmReceipt`.
-
-### B. Radar Flash (Geolocalización y Búsqueda Espacial)
-- Mapa interactivo Leaflet con OpenStreetMap y atribución legal obligatoria.
-- Los 60 productos se leen directamente de la colección `products` de Firestore.
-- Filtros de proximidad en anillos concéntricos: 1 km, 2 km, 3 km, 5 km, 10 km y Todos los distritos.
-- Coordenadas con privacidad aproximada (`approximateCoordinates`) en los 12 distritos de Lima Metropolitana.
-
-### C. Flash Live (Transmisiones en Directo)
-- **Hub de Transmisiones (`/live`):** Explorador de directos activos ("🔴 EN DIRECTO"), programados y finalizados leyendo de Firestore `liveStreams`.
-- **Panel del Anfitrión:** Creación de salas vía Cloud Functions `createLiveStream`, inicio con `startLiveStream` y cierre con `endLiveStream`.
-- **Chat Público en Tiempo Real:** Subcolección `liveStreams/{id}/messages` protegida por reglas de Firestore, con distinción visual del vendedor anfitrión.
-
----
-
-## 4. Estado de la Suite de Pruebas
-
-- **Compilación de Producción:** `npm run build` (`tsc -b && vite build`) genera los bundles limpios en `dist/` (0 errores TypeScript).
-- **Pruebas Unitarias, de Dominio y de Integridad (`npm test`):** **40 / 40 aprobadas** (Dominio, Demo, Radar Flash, Flash Live, Seed de 15 usuarios / 60 productos y Unificación de arquitectura).
-- **Pruebas de Emuladores (`npm run test:emulators`):** **28 / 28 aprobadas** (Reglas de seguridad de Firestore, Authentication, Functions y Storage con 8 flujos E2E completos).
-- **Total de pruebas automatizadas activas:** **68 pruebas** (100% aprobadas).
-
----
-
-## 5. Tabla de Usuarios de Prueba Pre-Poblados
-
-Contraseña universal para todas las cuentas en Firebase Auth: `Password123!`
+3. **Pruebas y Compilación:**
+   - `npm test`: 53 pruebas aprobadas (100% éxito) usando PGlite embebido para evaluar el comportamiento exacto de las funciones y RLS de PostgreSQL.
+   - `npm run build`: Compilación exitosa en 4.4 s con bundle JS optimizado de 509 kB.
 
 | Nombre | Rol | Correo Electrónico | Distrito | Verificado |
 | :--- | :--- | :--- | :--- | :---: |

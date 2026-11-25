@@ -1,5 +1,5 @@
 import type { State, Product, Order, LiveSession, LiveChatMessage } from "../model";
-import type { UserProfile } from "../types/firestore";
+import type { UserProfile } from "../types/marketplace";
 export type ProductInput = {
   id: string;
   title: string;
@@ -23,12 +23,13 @@ export type Snapshot = {
   clockOffset: number;
 };
 export interface MarketplaceService {
-  mode: "demo" | "firebase";
+  mode: "demo" | "supabase";
   subscribe(next: (snapshot: Snapshot) => void): () => void;
   login(email: string, password: string): Promise<void>;
   register(name: string, email: string, password: string): Promise<void>;
   logout(): Promise<void>;
   resetPassword(email: string): Promise<void>;
+  updatePassword?(password: string): Promise<void>;
   verifyEmail(): Promise<void>;
   refreshUser(): Promise<void>;
   updateProfile(name: string): Promise<void>;
@@ -77,24 +78,4 @@ export interface MarketplaceService {
     error: (message: string) => void,
   ): () => void;
 }
-export function friendly(error: unknown) {
-  const code = (error as { code?: string })?.code;
-  const messages: Record<string, string> = {
-    "auth/invalid-credential": "Correo o contraseña incorrectos.",
-    "auth/email-already-in-use": "Este correo ya está registrado.",
-    "auth/weak-password": "Usa al menos 8 caracteres.",
-    "auth/invalid-email": "Correo inválido.",
-    "auth/too-many-requests": "Demasiados intentos. Prueba más tarde.",
-    "auth/network-request-failed":
-      "No se pudo conectar. Comprueba tu conexión.",
-    "permission-denied": "No tienes acceso a estos datos.",
-    unavailable:
-      "Servicio no disponible. Comprueba la conexión o los emuladores.",
-  };
-  return (
-    (code && messages[code]) ||
-    (error instanceof Error
-      ? error.message
-      : "No se pudo completar la operación.")
-  );
-}
+export { friendly } from "../lib/errors";

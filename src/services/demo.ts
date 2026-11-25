@@ -1,3 +1,4 @@
+import { UserFacingError } from "../lib/errors";
 import {
   read,
   initial,
@@ -15,9 +16,9 @@ import {
   feeCents,
   descendingPrice,
   type Offer,
-} from "../../functions/src/domain";
+} from "../lib/domain";
 import type { MarketplaceService, Snapshot, ProductInput } from "./contracts";
-import type { UserProfile } from "../types/firestore";
+import type { UserProfile } from "../types/marketplace";
 import {
   SEED_USERS,
   getSeedProducts,
@@ -234,7 +235,7 @@ export class DemoService implements MarketplaceService {
     };
   }
   private require() {
-    if (!this.user) throw new Error("Inicia sesión.");
+    if (!this.user) throw new UserFacingError("Inicia sesión.");
     return this.user;
   }
   async switchDemo(name: string) {
@@ -297,8 +298,8 @@ export class DemoService implements MarketplaceService {
     );
   }
   async register() {
-    throw new Error(
-      "El registro real está disponible en modo Firebase. En DEMO usa Marta o Carlos.",
+    throw new UserFacingError(
+      "El registro real está disponible en modo Supabase. En DEMO usa Marta o Carlos.",
     );
   }
   async logout() {
@@ -307,7 +308,7 @@ export class DemoService implements MarketplaceService {
     this.emit();
   }
   async resetPassword() {
-    throw new Error("DEMO no envía correos. Selecciona Marta o Carlos.");
+    throw new UserFacingError("DEMO no envía correos. Selecciona Marta o Carlos.");
   }
   async verifyEmail() {}
   async refreshUser() {
@@ -316,7 +317,7 @@ export class DemoService implements MarketplaceService {
   async updateProfile(name: string) {
     const u = this.require();
     if (!name.trim() || name.trim().length > 80)
-      throw new Error("Nombre inválido.");
+      throw new UserFacingError("Nombre inválido.");
     this.profileNames[u.id] = name.trim();
     this.user = { ...u, name: name.trim() };
     this.emit();
@@ -334,7 +335,7 @@ export class DemoService implements MarketplaceService {
       price = cents(d.price) / 100,
       now = Date.now();
     if (!d.title.trim() || !d.description.trim())
-      throw new Error("Completa título y descripción.");
+      throw new UserFacingError("Completa título y descripción.");
     const p: Product = {
       id: d.id,
       title: d.title.trim(),
@@ -374,14 +375,14 @@ export class DemoService implements MarketplaceService {
       p.status !== "active" ||
       Date.now() >= p.end
     )
-      throw new Error("No se puede editar esta publicación.");
+      throw new UserFacingError("No se puede editar esta publicación.");
     if (!title.trim() || !description.trim())
-      throw new Error("Completa los campos.");
+      throw new UserFacingError("Completa los campos.");
     this.replace({ ...p, title, description });
   }
   private product(id: string) {
     const p = this.state.products.find((x) => x.id === id);
-    if (!p) throw new Error("Producto no encontrado.");
+    if (!p) throw new UserFacingError("Producto no encontrado.");
     return p;
   }
   private replace(p: Product) {
@@ -395,7 +396,7 @@ export class DemoService implements MarketplaceService {
     const u = this.require(),
       p = this.product(id);
     if (p.sellerId === u.id || p.status !== "active" || p.mode !== "subasta")
-      throw new Error("No puedes pujar en esta publicación.");
+      throw new UserFacingError("No puedes pujar en esta publicación.");
     const now = Date.now();
     const result = resolveBid(
       {
@@ -453,14 +454,14 @@ export class DemoService implements MarketplaceService {
     const old = this.state.orders.find((o) => o.productId === id);
     if (old) {
       if (old.buyerId === u.id) return old.id;
-      throw new Error("El producto ya fue comprado.");
+      throw new UserFacingError("El producto ya fue comprado.");
     }
     if (p.sellerId === u.id)
-      throw new Error("No puedes comprar tu publicación.");
+      throw new UserFacingError("No puedes comprar tu publicación.");
     if (p.mode === "subasta") {
       await this.closeAuction(id);
       if (this.product(id).winnerId !== u.id)
-        throw new Error("Solo el ganador puede comprar.");
+        throw new UserFacingError("Solo el ganador puede comprar.");
     }
     const price =
       p.mode === "remate"
@@ -474,13 +475,14 @@ export class DemoService implements MarketplaceService {
           )
         : Math.round(p.price * 100);
     if (price > cents(maxPrice))
-      throw new Error("El precio cambió. Revisa el total.");
+      throw new UserFacingError("El precio cambió. Revisa el total.");
     const o: Order = {
       id: crypto.randomUUID(),
       productId: id,
       title: p.title,
       price: price / 100,
       fee: feeCents(price) / 100,
+      feePayer: "seller",
       received: false,
       buyerId: u.id,
       sellerId: p.sellerId,
@@ -503,7 +505,7 @@ export class DemoService implements MarketplaceService {
     const u = this.require(),
       o = this.state.orders.find((x) => x.id === id);
     if (!o || o.buyerId !== u.id)
-      throw new Error("Solo el comprador puede confirmar.");
+      throw new UserFacingError("Solo el comprador puede confirmar.");
     this.state = {
       ...this.state,
       orders: this.state.orders.map((x) =>
@@ -516,9 +518,9 @@ export class DemoService implements MarketplaceService {
     const u = this.require(),
       o = this.state.orders.find((x) => x.id === id);
     if (!o || ![o.buyerId, o.sellerId].includes(u.id))
-      throw new Error("Sin acceso.");
+      throw new UserFacingError("Sin acceso.");
     if (!text.trim() || text.length > 1000)
-      throw new Error("Mensaje inválido.");
+      throw new UserFacingError("Mensaje inválido.");
     this.state = {
       ...this.state,
       orders: this.state.orders.map((x) =>
@@ -590,8 +592,8 @@ export class DemoService implements MarketplaceService {
   async startLiveStream(streamId: string) {
     const u = this.require();
     const stream = (this.state.liveStreams || []).find((s) => s.id === streamId);
-    if (!stream) throw new Error("Transmisión no encontrada.");
-    if (stream.sellerId !== u.id) throw new Error("Solo el anfitrión puede iniciar la transmisión.");
+    if (!stream) throw new UserFacingError("Transmisión no encontrada.");
+    if (stream.sellerId !== u.id) throw new UserFacingError("Solo el anfitrión puede iniciar la transmisión.");
 
     const updatedProducts = this.state.products.map((p) =>
       stream.productIds.includes(p.id) ? { ...p, isLive: true } : p
@@ -612,8 +614,8 @@ export class DemoService implements MarketplaceService {
   async endLiveStream(streamId: string) {
     const u = this.require();
     const stream = (this.state.liveStreams || []).find((s) => s.id === streamId);
-    if (!stream) throw new Error("Transmisión no encontrada.");
-    if (stream.sellerId !== u.id) throw new Error("Solo el anfitrión puede finalizar la transmisión.");
+    if (!stream) throw new UserFacingError("Transmisión no encontrada.");
+    if (stream.sellerId !== u.id) throw new UserFacingError("Solo el anfitrión puede finalizar la transmisión.");
 
     const updatedProducts = this.state.products.map((p) =>
       stream.productIds.includes(p.id) ? { ...p, isLive: false } : p
@@ -634,8 +636,8 @@ export class DemoService implements MarketplaceService {
   async setFeaturedLiveProduct(streamId: string, productId: string) {
     const u = this.require();
     const stream = (this.state.liveStreams || []).find((s) => s.id === streamId);
-    if (!stream) throw new Error("Transmisión no encontrada.");
-    if (stream.sellerId !== u.id) throw new Error("Solo el anfitrión puede cambiar el producto destacado.");
+    if (!stream) throw new UserFacingError("Transmisión no encontrada.");
+    if (stream.sellerId !== u.id) throw new UserFacingError("Solo el anfitrión puede cambiar el producto destacado.");
 
     const updatedStreams = (this.state.liveStreams || []).map((s) =>
       s.id === streamId ? { ...s, activeProductId: productId } : s
@@ -650,7 +652,7 @@ export class DemoService implements MarketplaceService {
 
   async sendLiveChatMessage(streamId: string, text: string) {
     const u = this.require();
-    if (!text.trim() || text.length > 300) throw new Error("Mensaje inválido (máx. 300 caracteres).");
+    if (!text.trim() || text.length > 300) throw new UserFacingError("Mensaje inválido (máx. 300 caracteres).");
 
     const stream = (this.state.liveStreams || []).find((s) => s.id === streamId);
     const isSeller = stream ? stream.sellerId === u.id : false;

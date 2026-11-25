@@ -1,3 +1,5 @@
+import { spanishValidation, clearValidation } from "../lib/formValidation";
+import { friendly } from "../lib/errors";
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import {
@@ -27,13 +29,15 @@ import {
 } from "lucide-react";
 import type { LiveSession, LiveChatMessage, Product, Mode } from "../model";
 import { money, priceAt, remaining } from "../model";
-import type { UserProfile } from "../types/firestore";
+import type { UserProfile } from "../types/marketplace";
 import type { MarketplaceService } from "../services/contracts";
 import {
   requestUserMedia,
   createDemoMediaStream,
   stopMediaStream,
+  startWebRTCSignaling,
 } from "../lib/webrtc";
+import { supabaseClient } from "../lib/supabase";
 
 interface LiveRoomProps {
   streamId: string;
@@ -62,6 +66,7 @@ export function LiveRoom({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoActive, setIsVideoActive] = useState(true);
+  const [isP2PConnected, setIsP2PConnected] = useState(false);
 
   // Estados de Chat
   const [messages, setMessages] = useState<LiveChatMessage[]>([]);
@@ -105,26 +110,55 @@ export function LiveRoom({
     return unsub;
   }, [service, streamId]);
 
-  // Manejo de vídeo (WebRTC vs Demo Stream)
+  // Manejo de vídeo y señalización WebRTC P2P con Supabase
   useEffect(() => {
     let currentLocalStream: MediaStream | null = null;
+    let webrtcSession: { stop: () => void } | null = null;
+    setIsP2PConnected(false);
 
     async function initMedia() {
-      if (isHost && !isDemoMode) {
-        const { stream: mediaStream, error } = await requestUserMedia();
-        if (mediaStream) {
-          currentLocalStream = mediaStream;
-          setActiveStream(mediaStream);
-          setCameraError(null);
-          if (videoRef.current) {
-            videoRef.current.srcObject = mediaStream;
+      if (isHost) {
+        if (!isDemoMode) {
+          const { stream: mediaStream, error } = await requestUserMedia();
+          if (mediaStream) {
+            currentLocalStream = mediaStream;
+            setActiveStream(mediaStream);
+            setCameraError(null);
+            if (videoRef.current) {
+              videoRef.current.srcObject = mediaStream;
+            }
+          } else {
+            setCameraError(error);
+            setIsDemoMode(true);
+            return;
           }
         } else {
-          setCameraError(error);
-          setIsDemoMode(true); // Fallback a demo si no hay cámara
+          const demoStream = createDemoMediaStream(
+            stream?.title || "Ventas Flash Live",
+            stream?.sellerName || "Anfitrión"
+          );
+          currentLocalStream = demoStream;
+          setActiveStream(demoStream);
+          if (videoRef.current) {
+            videoRef.current.srcObject = demoStream;
+          }
+        }
+
+        // Iniciar señalización WebRTC como anfitrión (envía stream a espectadores)
+        try {
+          const sb = supabaseClient();
+          webrtcSession = startWebRTCSignaling({
+            client: sb,
+            streamId,
+            userId: user?.id || `host-${stream?.sellerId || "default"}`,
+            isHost: true,
+            localStream: currentLocalStream,
+          });
+        } catch {
+          // Si estamos en modo demo sin conexión supabase remota
         }
       } else {
-        // Modo demostración: genera un stream de canvas de alta fidelidad
+        // Espectador: carga preview en canvas y se conecta vía WebRTC P2P
         const demoStream = createDemoMediaStream(
           stream?.title || "Ventas Flash Live",
           stream?.sellerName || "Anfitrión"
@@ -134,15 +168,41 @@ export function LiveRoom({
         if (videoRef.current) {
           videoRef.current.srcObject = demoStream;
         }
+
+        try {
+          const sb = supabaseClient();
+          const viewerId = user?.id || `viewer-${Math.random().toString(36).slice(2, 9)}`;
+          webrtcSession = startWebRTCSignaling({
+            client: sb,
+            streamId,
+            userId: viewerId,
+            isHost: false,
+            localStream: null,
+            onRemoteStream: (remoteStream) => {
+              setIsP2PConnected(true);
+              if (videoRef.current) {
+                videoRef.current.srcObject = remoteStream;
+              }
+            },
+            onStatusChange: (status) => {
+              if (status === "failed") {
+                setCameraError("No pudimos conectar el video en vivo. Revisa tu conexión o intenta usar otra red.");
+              }
+            },
+          });
+        } catch {
+          // Modo demo
+        }
       }
     }
 
-    initMedia();
+    void initMedia();
 
     return () => {
+      webrtcSession?.stop();
       stopMediaStream(currentLocalStream);
     };
-  }, [isHost, isDemoMode, stream?.title, stream?.sellerName]);
+  }, [isHost, isDemoMode, streamId, stream?.title, stream?.sellerName, stream?.sellerId, user?.id]);
 
   // Actualizar producto activo si el host lo cambia remotamente
   useEffect(() => {
@@ -177,7 +237,7 @@ export function LiveRoom({
       await service.sendLiveChatMessage(streamId, chatInput.trim());
       setChatInput("");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "No se pudo enviar el mensaje.";
+      const msg = friendly(err);
       setChatError(msg);
     }
   }
@@ -189,7 +249,7 @@ export function LiveRoom({
       await service.startLiveStream(streamId);
       setActionStatus("¡Directo iniciado!");
     } catch (err: unknown) {
-      setActionStatus(err instanceof Error ? err.message : "Error al iniciar el directo.");
+      setActionStatus(friendly(err));
     } finally {
       setIsBusy(false);
     }
@@ -205,7 +265,7 @@ export function LiveRoom({
       await service.endLiveStream(streamId);
       setActionStatus("Transmisión finalizada.");
     } catch (err: unknown) {
-      setActionStatus(err instanceof Error ? err.message : "Error al finalizar el directo.");
+      setActionStatus(friendly(err));
     } finally {
       setIsBusy(false);
     }
@@ -217,7 +277,7 @@ export function LiveRoom({
       try {
         await service.setFeaturedLiveProduct(streamId, pid);
       } catch (err: unknown) {
-        console.error("Error al actualizar producto destacado:", err);
+        setActionStatus(friendly(err));
       }
     }
   }
@@ -235,7 +295,7 @@ export function LiveRoom({
       await service.bid(currentProduct.id, nextPrice);
       setActionStatus(`¡Puja registrada por ${money(nextPrice)}!`);
     } catch (err: unknown) {
-      setActionStatus(err instanceof Error ? err.message : "No se pudo registrar la puja.");
+      setActionStatus(friendly(err));
     } finally {
       setIsBusy(false);
     }
@@ -257,7 +317,7 @@ export function LiveRoom({
       setBidAmount("");
       setActionStatus(`¡Puja registrada por ${money(val)}!`);
     } catch (err: unknown) {
-      setActionStatus(err instanceof Error ? err.message : "No se pudo registrar la puja.");
+      setActionStatus(friendly(err));
     } finally {
       setIsBusy(false);
     }
@@ -279,7 +339,7 @@ export function LiveRoom({
       setAutoBidAmount("");
       setActionStatus(`¡Auto-puja configurada hasta ${money(val)}!`);
     } catch (err: unknown) {
-      setActionStatus(err instanceof Error ? err.message : "No se pudo configurar la auto-puja.");
+      setActionStatus(friendly(err));
     } finally {
       setIsBusy(false);
     }
@@ -334,7 +394,7 @@ export function LiveRoom({
             {/* Overlay informativo de la transmisión */}
             <div className="video-overlay-top">
               <span className="channel-watermark">
-                ⚡ VENTAS FLASH LIVE · {isDemoMode ? "MODO DEMO" : "CÁMARA WEBRTC"}
+                ⚡ VENTAS FLASH LIVE · {isP2PConnected ? "WEBRTC P2P EN VIVO" : isHost && !isDemoMode ? "CÁMARA LOCAL" : "MODO ESTUDIO"}
               </span>
               <div className="video-quick-controls">
                 <button
@@ -527,7 +587,7 @@ export function LiveRoom({
                     </button>
                   </div>
 
-                  <form onSubmit={handleCustomBid} className="custom-bid-form">
+                  <form onInvalidCapture={spanishValidation} onInputCapture={clearValidation} onChangeCapture={clearValidation} onSubmit={handleCustomBid} className="custom-bid-form">
                     <input
                       type="number"
                       step="1"
@@ -542,7 +602,7 @@ export function LiveRoom({
                   </form>
 
                   {/* Auto-puja inteligente */}
-                  <form onSubmit={handleSetAutoBid} className="autobid-form">
+                  <form onInvalidCapture={spanishValidation} onInputCapture={clearValidation} onChangeCapture={clearValidation} onSubmit={handleSetAutoBid} className="autobid-form">
                     <input
                       type="number"
                       step="1"
@@ -615,7 +675,7 @@ export function LiveRoom({
 
           {chatError && <p className="chat-error-inline">{chatError}</p>}
 
-          <form onSubmit={handleSendMessage} className="live-chat-input-row">
+          <form onInvalidCapture={spanishValidation} onInputCapture={clearValidation} onChangeCapture={clearValidation} onSubmit={handleSendMessage} className="live-chat-input-row">
             <input
               type="text"
               maxLength={300}

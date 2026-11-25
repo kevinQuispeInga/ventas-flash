@@ -4,6 +4,7 @@ dist
 .env
 .env.*
 !.env.example
+!.env.demo
 functions/node_modules
 functions/lib
 *-debug.log

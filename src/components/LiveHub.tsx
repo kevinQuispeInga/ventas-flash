@@ -1,3 +1,5 @@
+import { spanishValidation, clearValidation } from "../lib/formValidation";
+import { friendly } from "../lib/errors";
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -17,7 +19,7 @@ import {
 } from "lucide-react";
 import type { LiveSession, Product } from "../model";
 import { money, priceAt, remaining } from "../model";
-import type { UserProfile } from "../types/firestore";
+import type { UserProfile } from "../types/marketplace";
 
 interface LiveHubProps {
   liveStreams: LiveSession[];
@@ -79,7 +81,7 @@ export function LiveHub({
       setShowCreateModal(false);
       navigate(`/live/${streamId}`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "No se pudo crear la sesión en vivo.";
+      const msg = friendly(err);
       setErrorMsg(msg);
     } finally {
       setIsSubmitting(false);
@@ -275,7 +277,7 @@ export function LiveHub({
             <h2>Crear nueva sesión Flash Live</h2>
             <p>Organiza tu transmisión en vivo, muestra tus artículos y recibe pujas al instante.</p>
 
-            <form onSubmit={handleCreate}>
+            <form onInvalidCapture={spanishValidation} onInputCapture={clearValidation} onChangeCapture={clearValidation} onSubmit={handleCreate}>
               <label>
                 Título del directo
                 <input

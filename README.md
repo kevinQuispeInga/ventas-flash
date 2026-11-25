@@ -1,101 +1,54 @@
-﻿# Ventas Flash ⚡ Marketplace Peruano
+# Ventas Flash · Supabase
 
-Plataforma web SPA completa de comercio electrónico y subastas en tiempo real para Perú (moneda en Soles `S/`), construida con **React 19**, **TypeScript**, **Vite 6**, **Tailwind CSS 4** y **Firebase Emulator Suite**.
+Marketplace peruano con React, TypeScript y Vite. El backend activo usa Supabase Auth, PostgreSQL, Storage y Realtime.
 
-**Costo de desarrollo e infraestructura:** **S/ 0.00** (sin tarjetas de crédito, sin plan Blaze y sin servicios de pago).
+## Estado
 
----
+La migración de código está preparada y probada localmente. Falta crear el proyecto Supabase, aplicar las migraciones y conectar sus variables públicas. No hay despliegue remoto realizado.
 
-## 🚀 Características Principales
+## Arrancar
 
-1. **Subastas Contrarreloj & Reloj Anti-Robo (Anti-Sniping):**
-   - Subastas con cuenta regresiva en vivo e incrementos mínimos de S/ 50.
-   - Extensión automática de 60 segundos si ingresa una puja en los últimos 30 segundos.
-   - **Auto-puja inteligente:** Configura un tope máximo confidencial; el motor puja por ti el mínimo necesario para liderar sin revelar tu presupuesto.
-2. **Remates Descendentes:**
-   - Descenso automático de precio cada 30 segundos basado en tiempo del servidor hasta un piso garantizado.
-3. **Compra Inmediata & Protección del 4%:**
-   - Checkout con desglose exacto de la tarifa de protección del 4%. Fondos en depósito en garantía (escrow) simulado.
-4. **Radar Flash (Geolocalización & Búsqueda Espacial):**
-   - Mapa interactivo con **Leaflet** y teselas de **OpenStreetMap**.
-   - Detección GPS del navegador o selección manual entre 12 distritos de Lima.
-   - Filtros de proximidad en tiempo real (1 km, 2 km, 3 km, 5 km, 10 km y Todos).
-   - Privacidad garantizada: dispersión espacial de publicaciones para proteger domicilios exactos.
-5. **Flash Live (Transmisiones en Directo):**
-   - Salas interactivas donde los vendedores presentan productos en vídeo.
-   - **Arquitectura Híbrida:** Cámara WebRTC P2P con señalización en Firestore o Modo Demostración asistido por Canvas sintético a 30 FPS.
-   - Subastas y compras sincronizadas durante la transmisión.
-   - Chat público en vivo independiente del chat privado postventa.
-6. **Postventa Bilateral & Confirmación de Recepción:**
-   - Mensajería en tiempo real entre comprador y vendedor para coordinar la entrega física en Lima.
-   - Confirmación de recepción exclusiva del comprador para liberar el escrow simulado.
+Requiere Node 22.18 o posterior.
 
----
-
-## 🛠️ Inicio Rápido con Un Solo Comando
-
-Ventas Flash opera como una **única aplicación unificada** utilizando **Firebase Emulator Suite** como su backend principal y fuente única de datos, con persistencia automática de registros en `./emulator-data`:
-
-### Opción 1: Script de PowerShell (Windows)
-```powershell
-.\iniciar-todo.ps1
-```
-
-### Opción 2: Script Node / npm
-```bash
-npm start
-```
-
-Ambos comandos verifican dependencias, levantan Firebase Emulator Suite (Auth, Firestore, Functions, Storage) importando `./emulator-data` y arrancan el servidor web frontend.
-
-- **Aplicación Web:** [http://127.0.0.1:5173](http://127.0.0.1:5173)
-- **Panel de Control de Emuladores:** [http://127.0.0.1:4000](http://127.0.0.1:4000)
-
----
-
-## 👥 Credenciales de Prueba (Pre-Pobladas en Auth y Firestore)
-
-> **Contraseña universal para todas las cuentas:** `Password123!`
-
-- **Vendedor:** `diego.vendedor@ventasflash.pe` (Miraflores, Insignia Verificada)
-- **Vendedora:** `camila.vendedora@ventasflash.pe` (San Isidro, Insignia Verificada)
-- **Comprador:** `carlos.comprador@ventasflash.pe` (Miraflores, Insignia Verificada)
-- **Compradora:** `marta.compradora@ventasflash.pe` (San Isidro, Insignia Verificada)
-
-*(Ver lista completa de 15 usuarios en [docs/datos-demo.md](docs/datos-demo.md) o en la barra inferior de desarrollo de la aplicación).*
-
----
-
-## 🧪 Pruebas Automatizadas
-
-El proyecto cuenta con **68 pruebas automatizadas** ejecutadas con 100% de aprobación:
-
-```bash
-# Ejecutar 40 pruebas unitarias, de dominio, geolocalización, transmisiones y seed:
-npm test
-
-# Ejecutar 28 pruebas completas de emuladores (reglas de seguridad, integración y 8 flujos E2E):
-npm run test:emulators
-```
+1. Sigue [la guía de Supabase y despliegue](docs/supabase-setup.md) para crear el proyecto y ejecutar los cuatro SQL de `supabase/migrations/` en orden.
+2. Copia `.env.example` a `.env.local` si no existe y completa `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`.
+3. Ejecuta:
 
 ```powershell
-# Pruebas unitarias de dominio, demo, radar y directos (30 pruebas):
-npm test
-
-# Pruebas de emuladores: reglas de seguridad, integración y 8 flujos E2E (28 pruebas):
-npm run test:emulators
-
-# Verificación de compilación TypeScript y producción:
-npm run build
+npm.cmd ci
+npm.cmd start
 ```
 
----
+También puedes usar `iniciar-todo.ps1`. No requiere emuladores ni Java. Sin configuración, la app muestra qué falta; no usa datos simulados de manera automática.
 
-## 📚 Documentación del Proyecto
+Para explorar la interfaz sin Supabase: `npm.cmd run dev:demo`. Es una demostración local explícita, con datos guardados en el navegador.
 
-- [Guía del Usuario](docs/guia-usuario.md): Manual paso a paso para compradores y vendedores.
-- [Instalación en Windows](docs/instalacion-windows.md): Requisitos y solución de problemas comunes.
-- [Arquitectura Técnica](docs/arquitectura-final.md): Diagrama global y decisiones de diseño.
-- [Informe de Pruebas](docs/pruebas-finales.md): Detalle de las 58 pruebas automatizadas.
-- [Limitaciones y Alcance Gratuito](docs/limitaciones.md): Transparencia sobre pasarelas reales y cloud.
-- [Estado de Desarrollo](docs/estado-desarrollo.md): Registro de fases y hoja de ruta.
+## Funcionalidad
+
+- Registro, confirmación de correo, inicio de sesión y recuperación de contraseña.
+- Publicaciones con imágenes, favoritos y Radar de proximidad.
+- Subastas con auto-puja privada, incremento mínimo de S/ 50 y extensión de 60 segundos en los últimos 30 segundos.
+- Remates descendentes calculados con hora del servidor.
+- Compra atómica, comisión del 4% descontada al vendedor, chat privado y confirmación de recepción.
+- Salas Live, productos destacados y chat público. El vídeo sigue siendo demostración o cámara local; no transmite vídeo remoto.
+
+**Los pagos siguen siendo simulados.** No hay cobro ni custodia real de dinero.
+
+## Pruebas y compilación
+
+```powershell
+npm.cmd test
+npm.cmd run build
+```
+
+La suite incluye pruebas de dominio, demo, Radar, cliente Supabase y migraciones SQL ejecutadas en PostgreSQL embebido. No sustituye las pruebas contra Auth, Storage, Realtime y Cron del proyecto remoto. Consulta la guía para la aceptación entre dos navegadores.
+
+## Despliegue
+
+Se incluyen configuraciones para Vercel y Netlify: build `npm run build`, salida `dist`, rutas SPA. Configura las variables públicas de Supabase en el hosting antes de compilar y autoriza sus URLs de autenticación. Para registros externos, configura SMTP en Supabase.
+
+## Archivos históricos
+
+`functions/`, `firebase.json`, reglas, pruebas y scripts de emuladores permanecen como referencia del backend anterior. No forman parte del arranque ni del bundle actual. Se conservaron los datos locales de `emulator-data/`; no se copiaron usuarios ni contraseñas de prueba a Supabase.
+
+La documentación anterior sobre Firebase describe esa implementación histórica. La guía vigente es [docs/supabase-setup.md](docs/supabase-setup.md).

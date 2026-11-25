@@ -1,3 +1,5 @@
+import { spanishValidation, clearValidation } from "./lib/formValidation";
+import { UserFacingError } from "./lib/errors";
 import React, { useState, useEffect, createContext, useContext } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -47,13 +49,17 @@ import {
   type MarketplaceService,
   type Snapshot,
 } from "./services/contracts";
-import { validateImage } from "./services/firebase";
-import type { UserProfile } from "./types/firestore";
+import { orderAmounts } from "./lib/pricing";
+import { AccessPanel } from "./components/AccessPanel";
+import { SellerEarnings } from "./components/SellerEarnings";
+import { validateImage } from "./lib/images";
+import type { UserProfile } from "./types/marketplace";
 import { RadarView } from "./components/RadarView";
 import { LiveHub } from "./components/LiveHub";
 import { LiveRoom } from "./components/LiveRoom";
 import { DevSeedBar } from "./components/DevSeedBar";
 import { LIMA_DISTRICTS, approximateCoordinates } from "./lib/geo";
+import { generateProductDraft } from "./lib/gemini";
 const Ctx = createContext<{
   state: State;
   service: MarketplaceService;
@@ -131,9 +137,9 @@ function App() {
   if (!setup.service)
     return (
       <main>
-        <h1>Configura Firebase para continuar</h1>
+        <h1>No pudimos abrir Ventas Flash</h1>
         <p role="alert">{setup.error}</p>
-        <p>No se ha sustituido la conexión por datos simulados.</p>
+        <p>Intenta abrir la página más tarde.</p>
       </main>
     );
   if (snap.loading)
@@ -191,6 +197,7 @@ function App() {
           />
           <Route path="/live/:id" element={<LiveRoomWrapper />} />
           <Route path="/acceso" element={<Access />} />
+          <Route path="/restablecer" element={<ResetPassword />} />
           <Route
             path="/perfil"
             element={
@@ -234,7 +241,7 @@ function App() {
           />
           <Route path="*" element={<NotFound />} />
         </Routes>
-        {import.meta.env.DEV && (
+        {import.meta.env.DEV && service.mode === "demo" && (
           <DevSeedBar
             service={service}
             user={snap.user}
@@ -279,7 +286,7 @@ function Protected({ children }: { children: React.ReactNode }) {
   );
 }
 function Access() {
-  const { service, user, act } = useApp();
+  const { service, user } = useApp();
   const nav = useNavigate(),
     loc = useLocation();
   const [mode, M] = useState("login"),
@@ -287,96 +294,57 @@ function Access() {
     [email, E] = useState(""),
     [password, P] = useState(""),
     [busy, B] = useState(false),
-    [notice, T] = useState("");
+    [notice, T] = useState(""),
+    [accessError, setAccessError] = useState("");
   const from = loc.state?.from || "/perfil";
   if (user) return <Navigate to={from} replace />;
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     B(true);
-    const ok = await act(() =>
-      mode === "reset"
-        ? service.resetPassword(email)
-        : mode === "register"
-          ? service.register(name, email, password)
-          : service.login(email, password),
-    );
-    B(false);
-    if (ok) {
-      if (mode === "reset")
-        T("Si el correo es válido, recibirás instrucciones de recuperación.");
-      else nav(from, { replace: true });
+    T("");
+    setAccessError("");
+    try {
+      if (mode === "reset") await service.resetPassword(email);
+      else if (mode === "register") await service.register(name, email, password);
+      else await service.login(email, password);
+      if (mode === "reset") T("Si el correo es válido, recibirás instrucciones de recuperación.");
+      else if (mode === "register" && service.mode === "supabase") {
+        T("Revisa tu correo y confirma tu cuenta. Después podrás iniciar sesión.");
+        M("login");
+      } else nav(from, { replace: true });
+    } catch (error) {
+      setAccessError(friendly(error));
+    } finally {
+      B(false);
     }
   }
-  return (
-    <main className="narrow">
-      <h1>
-        {mode === "register"
-          ? "Crea tu cuenta"
-          : mode === "reset"
-            ? "Recupera tu acceso"
-            : "Bienvenido a Ventas Flash"}
-      </h1>
-      <form className="panel" onSubmit={submit}>
-        {mode === "register" && (
-            <label>
-              Nombre
-              <input
-                required
-                maxLength={80}
-                value={name}
-                onChange={(e) => N(e.target.value)}
-              />
-            </label>
-          )}
-          <label>
-            Correo
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => E(e.target.value)}
-              autoComplete="email"
-            />
-          </label>
-          {mode !== "reset" && (
-            <label>
-              Contraseña
-              <input
-                type="password"
-                required
-                minLength={mode === "register" ? 8 : 1}
-                value={password}
-                onChange={(e) => P(e.target.value)}
-                autoComplete={
-                  mode === "register" ? "new-password" : "current-password"
-                }
-              />
-            </label>
-          )}
-          <button disabled={busy} className="button primary full">
-            {busy
-              ? "Procesando…"
-              : mode === "register"
-                ? "Registrarme"
-                : mode === "reset"
-                  ? "Enviar recuperación"
-                  : "Iniciar sesión"}
-          </button>
-          <p role="status">{notice}</p>
-          <div className="auth-links">
-            <button
-              type="button"
-              onClick={() => M(mode === "login" ? "register" : "login")}
-            >
-              {mode === "login" ? "Crear cuenta" : "Volver al inicio de sesión"}
-            </button>
-            <button type="button" onClick={() => M("reset")}>
-              Olvidé mi contraseña
-            </button>
-          </div>
-        </form>
-    </main>
-  );
+  return <AccessPanel mode={mode} name={name} email={email} password={password} busy={busy} notice={notice} error={accessError}
+    setMode={value => { M(value); T(""); setAccessError(""); }} setName={N} setEmail={E} setPassword={P} submit={submit} />;
+}
+
+function ResetPassword() {
+  const { service, user, act } = useApp();
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  return <main className="narrow"><h1>Nueva contraseña</h1>
+    {!user ? <p>Abre el enlace de recuperación enviado a tu correo. <Link to="/acceso">Solicitar otro enlace</Link></p>
+      : done ? <p role="status">Contraseña actualizada. <Link to="/perfil">Continuar</Link></p>
+      : <form onInvalidCapture={spanishValidation} onInputCapture={clearValidation} onChangeCapture={clearValidation} className="panel" onSubmit={async e => {
+        e.preventDefault(); setBusy(true);
+        const ok = await act(async () => {
+          if (password !== confirm) throw new UserFacingError("Las contraseñas no coinciden.");
+          if (!service.updatePassword) throw new UserFacingError("No se puede cambiar la contraseña en una cuenta de demostración.");
+          await service.updatePassword(password);
+        });
+        setBusy(false); setDone(ok);
+      }}>
+        <label>Nueva contraseña<input type="password" autoComplete="new-password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} /></label>
+        <label>Repite la contraseña<input type="password" autoComplete="new-password" required minLength={8} value={confirm} onChange={e => setConfirm(e.target.value)} /></label>
+        <button className="button primary" disabled={busy}>{busy ? "Guardando…" : "Guardar contraseña"}</button>
+      </form>}
+  </main>;
 }
 function Profile() {
   const { service, user, act } = useApp();
@@ -426,7 +394,7 @@ function Profile() {
             </button>
           </>
         )}
-        <form
+        <form onInvalidCapture={spanishValidation} onInputCapture={clearValidation} onChangeCapture={clearValidation}
           onSubmit={async (e) => {
             e.preventDefault();
             if (await act(() => service.updateProfile(name)))
@@ -697,7 +665,7 @@ function Catalog({ favorites = false }: { favorites?: boolean }) {
                 En esta demo, la recepción completa el pedido sin mover dinero
                 real.
               </p>
-              <small>Protección por solo el 4%.</small>
+              <small>Comisión de venta del 4%.</small>
             </div>
           </aside>
           <div className="results">
@@ -906,7 +874,7 @@ function Detail() {
                   Editar publicación
                 </button>
                 {editing && (
-                  <form
+                  <form onInvalidCapture={spanishValidation} onInputCapture={clearValidation} onChangeCapture={clearValidation}
                     onSubmit={async (e) => {
                       e.preventDefault();
                       if (
@@ -992,7 +960,7 @@ function Detail() {
                 <>
                   {user ? (
                     <>
-                      <form onSubmit={(e) => bid(e)}>
+                      <form onInvalidCapture={spanishValidation} onInputCapture={clearValidation} onChangeCapture={clearValidation} onSubmit={(e) => bid(e)}>
                         <label>
                           Tu puja (mínimo {money(p.price + 50)})
                           <input
@@ -1008,7 +976,7 @@ function Detail() {
                           Pujar {money(Number(amount) || p.price + 50)}
                         </button>
                       </form>
-                      <form onSubmit={(e) => bid(e, true)}>
+                      <form onInvalidCapture={spanishValidation} onInputCapture={clearValidation} onChangeCapture={clearValidation} onSubmit={(e) => bid(e, true)}>
                         <label>
                           Máximo privado de auto-puja
                           <input
@@ -1108,7 +1076,7 @@ function Detail() {
           )}
           <p className="protection">
             <ShieldCheck />
-            Protección DEMO del 4% · Sin cobros reales
+            Comisión incluida en el precio · Sin cobros reales
           </p>
         </div>
       </div>
@@ -1127,20 +1095,36 @@ function NotFound() {
 function Sell() {
   const { service, act } = useApp();
   const nav = useNavigate();
-  const [title, T] = useState("");
-  const [desc, D] = useState("");
-  const [category, C] = useState("Tecnología");
-  const [mode, M] = useState<Mode>("normal");
-  const [price, P] = useState("");
-  const [image, I] = useState("");
+  const [draft] = useState(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("ventas_flash_sell_draft") || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const [title, T] = useState(draft.title || "");
+  const [desc, D] = useState(draft.desc || "");
+  const [category, C] = useState(draft.category || "Tecnología");
+  const [mode, M] = useState<Mode>(draft.mode || "normal");
+  const [price, P] = useState(draft.price || "");
+  const [image, I] = useState(draft.image || "");
   const [file, F] = useState<File>();
   const [status, S] = useState("");
   const [busy, B] = useState(false);
-  const initialDistrict = LIMA_DISTRICTS[0];
+  const initialDistrict = LIMA_DISTRICTS.find((d) => d.name === draft.district) || LIMA_DISTRICTS[0];
   const initialApprox = approximateCoordinates(initialDistrict.latitude, initialDistrict.longitude);
-  const [district, SetDistrict] = useState(initialDistrict.name);
+  const [district, SetDistrict] = useState(draft.district || initialDistrict.name);
   const [lat, SetLat] = useState(initialApprox.latitude);
   const [lon, SetLon] = useState(initialApprox.longitude);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        "ventas_flash_sell_draft",
+        JSON.stringify({ title, desc, category, mode, price, image, district })
+      );
+    } catch {}
+  }, [title, desc, category, mode, price, image, district]);
   async function photo(file?: File) {
     if (!file) return;
     try {
@@ -1155,22 +1139,28 @@ function Sell() {
     reader.onerror = () => S("No se pudo leer la imagen.");
     reader.readAsDataURL(file);
   }
-  function ai() {
-    if (!title.trim()) {
-      S("Escribe el nombre de tu producto primero.");
+  async function ai() {
+    if (!title.trim() && !image) {
+      S("Escribe el nombre de tu producto o añade una foto primero.");
       return;
     }
     B(true);
-    setTimeout(() => {
-      D(
-        `${title.trim()} en muy buen estado, cuidado y listo para una nueva historia. Entrega coordinada en Lima. Consulta los detalles antes de comprar.`,
-      );
-      if (!price) P("250");
+    S("Consultando a Google Gemini AI para tasación y descripción…");
+    try {
+      const result = await generateProductDraft(title.trim() || "Artículo en venta", image || undefined);
+      D(result.description);
+      C(result.category);
+      P(String(result.price));
       S(
-        "Borrador generado con IA simulada. Revisa el estado, la descripción y el precio antes de publicar.",
+        result.isRealAI
+          ? `✨ ¡Generado con Google Gemini 2.5 Flash! Categoría: ${result.category} · Precio estimado: S/ ${result.price}.`
+          : `¡Borrador generado para ${result.category}! Precio referencial: S/ ${result.price}. Puedes personalizarlo.`
       );
+    } catch {
+      S("No se pudo completar la consulta de IA. Revisa el borrador.");
+    } finally {
       B(false);
-    }, 700);
+    }
   }
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -1190,6 +1180,9 @@ function Sell() {
         locationLabel: district,
         locationVisibility: "approximate",
       });
+      try {
+        sessionStorage.removeItem("ventas_flash_sell_draft");
+      } catch {}
       nav("/producto/" + id);
     });
     B(false);
@@ -1203,7 +1196,7 @@ function Sell() {
       <span className="eyebrow muted">DALE UNA NUEVA HISTORIA</span>
       <h1>Vende rápido. Así de simple.</h1>
       <p>Los buenos hallazgos empiezan con una buena publicación.</p>
-      <form className="panel sell-form" onSubmit={submit}>
+      <form onInvalidCapture={spanishValidation} onInputCapture={clearValidation} onChangeCapture={clearValidation} className="panel sell-form" onSubmit={submit}>
         <label className="upload">
           <Camera size={30} />
           {image ? (
@@ -1237,7 +1230,7 @@ function Sell() {
           disabled={busy}
         >
           <Sparkles size={18} />
-          {busy ? "Preparando borrador…" : "Ayúdame con IA simulada"}
+          {busy ? "Consultando a Google Gemini AI…" : "Ayúdame con IA (Gemini 2.5 Flash)"}
         </button>
         <label>
           Descripción
@@ -1255,8 +1248,10 @@ function Sell() {
             <select value={category} onChange={(e) => C(e.target.value)}>
               {[
                 "Tecnología",
+                "Videojuegos",
                 "Música",
                 "Fotografía",
+                "Deportes",
                 "Hogar",
                 "Moda",
                 "Otros",
@@ -1319,6 +1314,7 @@ function Sell() {
               ? "Baja un 2% del precio inicial cada 30 segundos (mínimo S/ 1 por paso), hasta el 70% del precio inicial."
               : "Precio fijo: compra inmediata."}
         </p>
+        <SellerEarnings price={price} mode={mode} />
         <p role="status">{status}</p>
         <button disabled={busy} className="button primary full">
           <Plus size={18} /> Publicar producto
@@ -1359,7 +1355,7 @@ function Checkout() {
         <Link to={"/producto/" + id}>Volver a la subasta</Link>
       </main>
     );
-  const fee = Math.round(Math.round(quote * 100) * 0.04) / 100;
+
   async function pay(e: React.FormEvent) {
     e.preventDefault();
     if (!accepted) return;
@@ -1374,7 +1370,7 @@ function Checkout() {
       </Link>
       <h1>Tu hallazgo, casi tuyo.</h1>
       <p>Proveedor de pagos DEMO · No ingreses datos bancarios.</p>
-      <form className="panel" onSubmit={pay}>
+      <form onInvalidCapture={spanishValidation} onInputCapture={clearValidation} onChangeCapture={clearValidation} className="panel" onSubmit={pay}>
         <div className="checkout-product">
           <Photo p={p} />
           <div>
@@ -1387,17 +1383,14 @@ function Checkout() {
           <span>Producto (máximo autorizado)</span>
           <b>{money(quote)}</b>
         </div>
-        <div className="bid-row">
-          <span>Protección (4%)</span>
-          <b>{money(fee)}</b>
-        </div>
+        <p className="checkout-commission">Sin comisión adicional para el comprador. La comisión del 4% se descuenta al vendedor.</p>
         <div className="bid-row total">
           <span>Total máximo</span>
-          <strong>{money(quote + fee)}</strong>
+          <strong>{money(quote)}</strong>
         </div>
         <p className="notice">
           <ShieldCheck />
-          Simulación: Firebase no cobra ni retiene dinero real. El backend
+          Simulación: no se cobra ni retiene dinero real. El backend
           calcula el importe final y evita compras duplicadas.
         </p>
         {p.mode === "remate" && (
@@ -1466,8 +1459,9 @@ function OrderPanel({ order: o }: { order: State["orders"][number] }) {
       </div>
       <p>
         {o.buyerId === user?.id ? "Tu compra" : "Tu venta"} · Total:{" "}
-        <b>{money(o.price + o.fee)}</b> · Proveedor DEMO
+        <b>{money(orderAmounts(o).buyerTotal)}</b> · Proveedor DEMO
       </p>
+      {o.sellerId === user?.id && <div className="order-proceeds"><span>Comisión de la plataforma: <b>{money(o.fee)}</b>{o.feePayer !== "seller" && " (a cargo del comprador en este pedido anterior)"}</span><strong>Recibirás: {money(orderAmounts(o).sellerNet)}</strong></div>}
       <div className="notice">
         <ShieldCheck />
         {o.received
@@ -1486,7 +1480,7 @@ function OrderPanel({ order: o }: { order: State["orders"][number] }) {
           </p>
         ))}
       </div>
-      <form
+      <form onInvalidCapture={spanishValidation} onInputCapture={clearValidation} onChangeCapture={clearValidation}
         className="chat-input"
         onSubmit={async (e) => {
           e.preventDefault();

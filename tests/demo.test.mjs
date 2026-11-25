@@ -49,6 +49,7 @@ test("DEMO publica, compra con otro usuario, chat bilateral y recepción persist
   const orderId = await s.purchase(id, 100);
   let o = snapshot(s).state.orders[0];
   assert.equal(o.fee, 4);
+  assert.equal(o.feePayer, "seller");
   await s.sendMessage(orderId, "Hola Marta");
   await s.switchDemo("Marta");
   let messages;

@@ -5,7 +5,7 @@
  */
 
 import type { Product, LiveSession, LiveChatMessage, Order, Mode } from "../model";
-import type { UserProfile } from "../types/firestore";
+import type { UserProfile } from "../types/marketplace";
 import { LIMA_DISTRICTS } from "../lib/geo";
 
 export interface SeedUser extends UserProfile {
