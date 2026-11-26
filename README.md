@@ -47,8 +47,6 @@ La suite incluye pruebas de dominio, demo, Radar, cliente Supabase y migraciones
 
 Se incluyen configuraciones para Vercel y Netlify: build `npm run build`, salida `dist`, rutas SPA. Configura las variables públicas de Supabase en el hosting antes de compilar y autoriza sus URLs de autenticación. Para registros externos, configura SMTP en Supabase.
 
-## Archivos históricos
+## Backend actual
 
-`functions/`, `firebase.json`, reglas, pruebas y scripts de emuladores permanecen como referencia del backend anterior. No forman parte del arranque ni del bundle actual. Se conservaron los datos locales de `emulator-data/`; no se copiaron usuarios ni contraseñas de prueba a Supabase.
-
-La documentación anterior sobre Firebase describe esa implementación histórica. La guía vigente es [docs/supabase-setup.md](docs/supabase-setup.md).
+El código, las dependencias y las guías del antiguo backend Firebase se retiraron del repositorio. Su versión anterior sigue disponible en el historial de Git. La guía vigente es [Supabase y despliegue](docs/supabase-setup.md).

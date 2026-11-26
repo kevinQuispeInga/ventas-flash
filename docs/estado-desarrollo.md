@@ -31,7 +31,7 @@
    - La aplicación activa (`src/services/index.ts`, `src/lib/supabase.ts`, `src/services/supabase.ts`) opera exclusivamente con `SupabaseService` o `DemoService`.
    - No hay importaciones de `@firebase` ni `firebase` en el bundle de producción (`tests/unification.test.mjs` lo comprueba mediante esbuild y metafile).
    - Los emuladores de Firebase, Java y Cloud Functions ya no son requeridos para la ejecución activa de la aplicación ni para las pruebas estándar.
-   - Los respaldos históricos (`emulator-data/`, `functions/`, etc.) se conservan intactos en el repositorio sin ser eliminados ni cargados por el runtime.
+   - El backend anterior de Firebase y sus guías se retiraron del repositorio; siguen disponibles en el historial de Git. Los datos locales ignorados de `emulator-data/` se conservan.
 
 2. **Migraciones PostgreSQL Listas:**
    - `supabase/migrations/202611250001_marketplace.sql`: Esquema `public` y `private`, tablas relacionales (`profiles`, `products`, `auto_bids`, `bids`, `orders`, `messages`, `favorites`, `live_streams`, `live_messages`), RLS estricto, funciones seguras transaccionales (`create_product`, `place_bid`, `purchase_product`, `confirm_receipt`, etc.).

@@ -81,6 +81,6 @@ PGlite no verifica envío de correos, transporte Realtime, servicio HTTP de Stor
 - Live conserva salas, productos y chat; el vídeo existente es una demostración o previsualización local de cámara. No había transporte de vídeo remoto implementado y esta migración no añade un servicio audiovisual.
 - Coordenadas ocultas no se guardan en el catálogo público. Las aproximadas se redondean en el servidor a dos decimales.
 - Catálogo y consultas actuales se orientan a un MVP y quedan sujetos al límite de filas del API de Supabase; para catálogos grandes hay que implementar paginación y búsqueda de servidor.
-- Los datos locales de `emulator-data/` se conservaron. No se importaron cuentas, contraseñas ni datos ficticios a la nube. Los archivos Firebase de `functions/`, reglas y scripts de emuladores se conservan como referencia histórica; la aplicación activa no los importa.
+- Los datos locales de `emulator-data/` se conservaron. No se importaron cuentas, contraseñas ni datos ficticios a la nube. El código, las reglas, las dependencias y los scripts de Firebase se retiraron; se pueden consultar en el historial de Git.
 
 Referencias: [funciones y privilegios](https://supabase.com/docs/guides/database/functions), [Storage RLS](https://supabase.com/docs/guides/storage/security/access-control), [Cron](https://supabase.com/docs/guides/cron), [Realtime](https://supabase.com/docs/guides/realtime/postgres-changes).

@@ -12,3 +12,10 @@ functions/lib
 coverage
 emulator-data
 emulator-data/
+.vercel
+.env*
+
+# Plantillas públicas y archivos locales del editor
+!.env.example
+!.env.demo
+.vs/
